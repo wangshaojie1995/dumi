@@ -1,0 +1,15 @@
+{
+  "extends": "../../tsconfig.json",
+  "compilerOptions": {
+    "moduleResolution": "node",
+    "target": "esnext",
+    "module": "esnext",
+    "paths": {
+      "@/*": ["src/*"],
+      "@@/*": [".dumi/tmp/*"],
+      "dumi": ["."],
+      "dumi/dist/*": ["src/*"],
+      "dumi/theme/*": ["src/client/theme-default/*"]
+    }
+  }
+}

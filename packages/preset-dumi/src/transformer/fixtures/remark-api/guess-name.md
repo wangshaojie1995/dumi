@@ -1,1 +1,0 @@
-<API src="./Hello/World.tsx" exports='["default"]'></API>

@@ -1,5 +1,4 @@
-fixtures/
-lib/
-.umi/
-coverage/
-dist/
+/dist
+/compiled
+/theme-default
+*.yaml

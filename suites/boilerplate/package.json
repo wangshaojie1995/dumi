@@ -1,0 +1,34 @@
+{
+  "name": "create-dumi",
+  "version": "2.3.1",
+  "description": "Creator for dumi boilerplate",
+  "homepage": "https://github.com/umijs/dumi/tree/master/suites/boilerplate#readme",
+  "bugs": "https://github.com/umijs/dumi/issues",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/umijs/dumi"
+  },
+  "license": "MIT",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "bin": {
+    "create-dumi": "bin/create-dumi.js"
+  },
+  "files": [
+    "dist",
+    "templates"
+  ],
+  "scripts": {
+    "build": "father build",
+    "dev": "father dev"
+  },
+  "dependencies": {
+    "@umijs/utils": "^4.0.84"
+  },
+  "publishConfig": {
+    "access": "public"
+  },
+  "authors": [
+    "PeachScript <scdzwyxst@gmail.com> (https://github.com/PeachScript)"
+  ]
+}

@@ -1,4 +1,5 @@
-.eslintrc.js
-fixtures
-cli.ts
-.umi/
+/dist
+/compiled
+/theme-default
+/suites/*/compiled
+/suites/preset-vue/lib

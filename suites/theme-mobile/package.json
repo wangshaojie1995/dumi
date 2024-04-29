@@ -1,0 +1,47 @@
+{
+  "name": "dumi-theme-mobile",
+  "version": "2.3.0",
+  "description": "dumi-theme-mobile",
+  "keywords": [
+    "dumi",
+    "dumi theme",
+    "mobile library"
+  ],
+  "homepage": "https://github.com/umijs/dumi/tree/master/suites/theme-mobile#readme",
+  "bugs": "https://github.com/umijs/dumi/issues",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/umijs/dumi",
+    "directory": "suites/theme-mobile"
+  },
+  "license": "MIT",
+  "sideEffects": [
+    "**/*.less"
+  ],
+  "files": [
+    "dist"
+  ],
+  "scripts": {
+    "build": "father build",
+    "dev": "father dev"
+  },
+  "dependencies": {
+    "@ant-design/icons-svg": "^4.2.1",
+    "f2-touchemulator": "^0.0.1",
+    "qrcode.react": "^3.1.0",
+    "umi-hd": "^5.0.1"
+  },
+  "devDependencies": {
+    "dumi": "workspace:*",
+    "father-plugin-dumi-theme": "workspace:*"
+  },
+  "peerDependencies": {
+    "dumi": "^2.2.0",
+    "react": ">=16.8",
+    "react-dom": ">=16.8"
+  },
+  "authors": [
+    "xiaohuoni <448627663@qq.com> (https://github.com/xiaohuoni)",
+    "Peach <scdzwyxst@gmail.com> (https://github.com/PeachScript)"
+  ]
+}

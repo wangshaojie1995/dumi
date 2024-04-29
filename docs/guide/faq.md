@@ -1,69 +1,31 @@
 ---
-title: FAQ
-order: 4
+group: 其他
+order: 3
 ---
 
-## What is the relationship between dumi and Umi?
+# 常见问题
 
-The dumi actually is a preset of Umi —— @umijs/preset-dumi, which means that we can use dumi in a Umi project at the same time. However, in order to avoid conflicts between the configurations of the Umi project and the dumi document, it is recommended to use [UMI_ENV](https://umijs.org/docs/env-variables#umi_env) to distinguish.
+## dumi 和 Umi 的关系是什么？
 
-## Are these all configurations? What if I need more features?
+Umi 是前端开发框架，适用于前端应用研发；dumi 是在 Umi 的基础上打造的静态站点框架，适用于组件研发。
 
-dumi is based on Umi, Which means in addition to the configurations provided by itself, it also supports [all configurations of Umi](https://umijs.org/config), and also supports [the plugins of Umi](https://umijs.org/plugins/preset-react), so if you need more features, you can first check whether Umi's configurations and plugins can be satisfied. If still cannot be satisfied, welcome to feedback to [the discuss group](/guide#contributing) or [give a Feature Request](https://github.com/umijs/dumi/issues/new?labels=enhancement&template=feature_request.md&title=feat%3A+) on GitHub
+## 如何完全自定义首页？
 
-## Why `README.md` appears on the homepage of the document?
+创建 `.dumi/pages/index.tsx` 即可用 React 来编写首页，注意不要同时在文档解析的根目录中创建 index.md，会导致路由冲突。
 
-Whether it is a document or an website, there must be a home page. Dumi will first look for `index.md` or `README.md` as the homepage in all `resolve.includes` folders, if not found, it will use `README.md` in the project root directory as the homepage.
+## dumi 支持使用 `.md` 之外的其他方式编写文档吗？
 
-## How to fully customize the homepage?
+dumi 约定 `.dumi/pages` 为 React 路由的解析目录，较为复杂的交互式页面可以在这个目录下用 React 编写，路由的生成规则及 FrontMatter 能力与 md 一致。
 
-At present, dumi has not yet support the theme customization function, but it can be realized by importing the external embedded Demo:
+## 如何在 cra 等非 umi 项目中使用 dumi？
 
-```markdown
-<!-- index.md -->
-
-<code src="path/to/homepage.tsx" inline />
-```
-
-For detailed usage, please refer to [use in dumi](https://landing.ant.design/docs/use/dumi) of Ant Design Landing
-
-## How to customize "Edit this page"?
-
-When you set the `repository` in the package.json of the root directory, dumi will generate the corresponding **edit doc** button at the bottom of the page. E.g:
-
-```json
-// package.json
-{
-  "repository": {
-    "type": "git",
-    "url": "git+https://github.com/umijs/dumi.git",
-    "branch": "master",
-    "platform": "github"
-  }
-}
-```
-
-Among:
-
-- `url`: Decide to jump to the repository path
-- `branch`: Corresponding to the repository branch. Default is `master`
-- `platform`: Corresponding platform. When the current setting is `gitlab`, if the url involves subgroups, it will be treated specially
-
-## Does dumi support to write documents in other ways rather than `.md`?
-
-Sorry, it is not supported yet
-
-## How to use dumi in non-Umi projects such as cra?
-
-[Source code](https://github.com/xiaohuoni/dumi-demo-cra)
-
-1. Install the dependence.
+1. 安装模块。
 
 ```bash
 yarn add dumi cross-env -D
 ```
 
-2. Add a start-up command in `package.json`
+2. 增加启动命令，修改 `package.json`。
 
 ```json
   "scripts": {
@@ -72,7 +34,7 @@ yarn add dumi cross-env -D
   },
 ```
 
-3. Create `dumi/config/config.js`, and add configuration
+3. 增加配置，新建 `.dumirc.js|ts` 到 `APP_ROOT` 指定的根目录中。dumi 会根据 `APP_ROOT` 来消费配置文件，如果不指定 `APP_ROOT`，则在项目根目录创建即可。
 
 ```js
 export default {
@@ -82,72 +44,59 @@ export default {
 };
 ```
 
-4. Create a new document directory `dumi/docs/`, where the `dumi` directory is the environment variable configured in the second step, you can modify it at will.
+4. 新建文档目录 `dumi/docs/`，这里的 `dumi` 目录即第二步中配置的环境变量，你可以随意同步修改。
 
-5. Create `dumi/docs/index.md`.
+5. 新建文档 `dumi/docs/index.md`。
 
 ```markdown
-# This is a demo of dumi combined with create-react-app
+# 这是一个 dumi 结合 create-react-app 的 Demo
 ```
 
-6. Add the temporary files of dumi into `.gitignore`.
+6. 将 dumi 的临时文件添加到 `.gitignore` 中。
 
 ```text
-.umi
+.dumi/tmp*
 ```
 
-## Does dumi support to write documents and demos based on other frameworks, such as Vue and Angular?
+## dumi 支持基于其他技术框架、例如 Vue、Angular 编写文档和 Demo 吗？
 
-Sorry, it's not supported yet. But Umi 3 has abstracted the renderer from the structure. If there are other renderers in the future, dumi will also follow up.
+暂不支持
 
-## How to add statistical scripts and global CSS styles?
+## 如何添加统计脚本和全局 CSS 样式？
 
-You can configurate it through [styles](https://umijs.org/config#styles) and [scripts](https://umijs.org/config#scripts) of Umi.
+统计脚本可以使用配置项 [analytics](/config#analytics)，全局样式可以添加到 `.dumi/global.{less,css}` 文件内。
 
-## Local development is works, but will get a 404 after deployment and visiting
+## 部署文档
 
-There is only one `index.html` is output as the entry HTML file by default. The server can find the file while path is `/` but `/some-route` does not have a corresponding `/some-route/index.html`, so it will get a 404. You can set `config.exportStatic` to `{}` which is means output all HTML files in a folder structure according to the route. For more usage of this configuration, please refer to the Umi document: [Config - exportStatic](https://umijs.org/config#exportstatic).
+### 非根目录部署
 
-## The bundle after document building is too large, which brings about slow website access. How to implement load-on-demand mode?
-
-You can set `config.dynamicImport` to `{}`. For more usage fo this configuration, please refer to the Umi document: [Config - dynamicImport](https://umijs.org/config#dynamicimport).
-
-## Deploy documents
-
-### Deploy to a non-root directory of domain
-
-Configurating [base](https://umijs.org/config#base) and [publicPath](https://umijs.org/config#publicpath) (depends on the actual situation) of Umi will works
+非根目录部署需要修改 Umi 的 [base 配置项](/config#base) 和 **视实际情况** 修改 [publicPath 配置项](/config#publicpath)。
 
 ```ts
 export default {
-  base: '/docs-base-route-path',
-  publicPath: '/assets-files-base-path/',
-  exportStatic: {}, // Export all routes as HTML directory structure to avoid 404 when refreshing the page
-  // Other configuration
+  base: '/文档起始路由/',
+  publicPath: '/静态资源起始路径/',
+  // 其他配置
 };
 ```
 
-> If the document project were independent, you would configure `base` and `publicPath` as same!
+> 文档项目独立时, 通常 `base` 和 `publicPath` 配置项相同。
 
-### Deploy on Github Pages
+### 部署到 GitHub Pages
 
-Since GitHub Pages is deployed in a non-domain name root path, the `base` and `publicPath` configurations are set to the repository name before deployment. See [Deploy to a non-root directory of domain](#deploy-to-a-non-root-directory-of-domain)
+由于 GitHub Pages 是非域名根路径部署, `base` 和 `publicPath` 配置项需改为 **仓库名称** 。参考 [非根目录部署](#非根目录部署)
 
-#### Manual deployment
+#### 手动部署
 
-With the help of [gh-pages](https://github.com/tschaub/gh-pages), you can easily deploy documents to Github Page
+借助 [gh-pages](https://github.com/tschaub/gh-pages) 可以轻松帮助我们部署文档到 Github Page
 
 ```bash
 npm install gh-pages --save-dev
-```
-
-or
-
-```bash
+# or
 yarn add gh-pages -D
 ```
 
-Add in `package.json`
+`package.json` 中添加
 
 ```json
 "scripts": {
@@ -155,23 +104,29 @@ Add in `package.json`
 }
 ```
 
-Compile to `dist` directory
+> 同样的，如果是 react 文档，使用 `gh-pages -d docs-dist`命令即可。
+
+编译生成 `dist` 目录
 
 ```bash
+# site 模版
+npm run build
+
+# react 模版
 npm run docs:build
 ```
 
-One-click release
+一键发布
 
 ```bash
 npm run deploy
 ```
 
-#### Automatic deployment
+#### 自动部署
 
-With the help of [Github Action](https://github.com/features/actions), projects will automatically deployed after each update of `master` branch
+利用 [Github Action](https://github.com/features/actions) 在每次 `main` 分支更新后自动部署
 
-Create `.github/workflows/gh-pages.yml`
+新建 `.github/workflows/gh-pages.yml` 文件
 
 ```yml
 name: github pages
@@ -179,93 +134,40 @@ name: github pages
 on:
   push:
     branches:
-      - master # default branch
+      - main # default branch
 
 jobs:
   deploy:
-    runs-on: ubuntu-18.04
+    runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v2
-      - run: npm install
-      - run: npm run docs:build
+      - name: Checkout
+        uses: actions/checkout@v3
+        with:
+          # 如果配置 themeConfig.lastUpdated 为 false，则不需要添加该参数以加快检出速度
+          fetch-depth: 0
+      - name: Install dependencies
+        run: npm install
+      - name: Build with dumi
+        # 文档编译命令，如果是 react 模板需要修改为 npm run docs:build
+        run: npm run build
       - name: Deploy
         uses: peaceiris/actions-gh-pages@v3
         with:
           github_token: ${{ secrets.GITHUB_TOKEN }}
-          publish_dir: ./docs-dist
+          # 文档目录，如果是 react 模板需要修改为 docs-dist
+          publish_dir: ./dist
 ```
 
-## During the development, how to configure the styles in the md file in load-on-demand?
+> 如果 actions 部署时遇到 403 错误，可以尝试使用 [Deploy Token](https://github.com/peaceiris/actions-gh-pages#%EF%B8%8F-set-ssh-private-key-deploy_key)
 
-Dumi will alias pkgName/es, pkgName/lib, [for details, see](https://github.com/umijs/dumi/blob/master/packages/preset-dumi/src/plugins/core.ts#L198)
+## dumi 如何支持对 Swift、C#、Kotlin 等语言的语法高亮？
 
-Configure `extraBabelPlugins` (Attention, it is a configuration of `.umirc.ts`, not `.fatherrc.ts`), add [`babel-plugin-import`](https://github.com/ant-design/babel-plugin-import), and configure reasonably according to the directory structure.
+dumi 语法高亮使用的 [prism-react-renderer](https://github.com/FormidableLabs/prism-react-renderer) ，是一款基于 [PrismJS](https://github.com/PrismJS/prism) 实现的 React 组件。 `PrismJS` 支持的语言种类很多，但 `prism-react-renderer` 在实现的时候对部分语言进行了移除，其具体原因可以查看 [Adding Out of the Box Languages](https://github.com/FormidableLabs/prism-react-renderer/issues/53#issuecomment-546653848)。
 
-For example：
-
-Here is the directory structure：
-
-```shell
-.
-├── scripts
-│   └── hack-depend.js
-├── src
-│   ├── Button
-│   │   ├── style
-│   │   │   ├── index.less
-│   │   │   └── mixin.less
-│   │   ├── index.md
-│   │   └── index.tsx
-│   ├── style
-│   │   ├── base.less
-│   │   ├── color.less
-│   │   └── mixin.less
-│   └── index.ts
-├── .editorconfig
-├── .fatherrc.ts
-├── .gitignore
-├── .prettierignore
-├── .prettierrc
-├── .umirc.ts
-├── README.md
-├── package.json
-├── tsconfig.json
-├── typings.d.ts
-└── yarn.lock
-```
-
-In .umirc.ts：
+我们在 dumi 中可以通过下面的方式，添加对其他语言的支持：
 
 ```tsx | pure
-extraBabelPlugins: [
-  [
-    'import',
-    {
-      libraryName: 'lean',
-      camel2DashComponentName: false,
-      customStyleName: name => {
-        return `./style/index.less`; // Attention: the ./ cannot be omitted in here
-      },
-    },
-    'lean',
-  ],
-];
-```
-
-Import component in md:
-
-```tsx | pure
-import { Button } from 'lean'; // load-on-demand styles here
-```
-
-## How does dumi support to highlight for languages such as Swift, C#, Kotlin?
-
-The [prism-react-renderer](https://github.com/FormidableLabs/prism-react-renderer) used for highlighting in dumi, is a React component based on [PrismJS](https://github.com/PrismJS/prism). `PrismJS` supports many languages, but `prism-react-renderer` has removed some languages when implemented. For more specific reasons, please refer to [Adding Out of the Box Languages](https://github.com/FormidableLabs/prism-react-renderer/issues/53#issuecomment-546653848)
-
-We can add support for other languages in dumi in the following ways:
-
-```tsx | pure
-// src/app.ts
+// .dumi/global.ts
 import Prism from 'prism-react-renderer/prism';
 
 (typeof global !== 'undefined' ? global : window).Prism = Prism;
@@ -274,6 +176,45 @@ require('prismjs/components/prism-kotlin');
 require('prismjs/components/prism-csharp');
 ```
 
-## Use dumi in non-Umi project then got Error: register failed, invalid key xx from plugin src/app.ts
+## 为什么不支持 CSS Modules？
 
-Because of `src/app.(t|j)sx?` is dumi's [runtime configuration module](https://umijs.org/docs/directory-structure#appts), please avoid use this path, you can also use the [APP_ROOT way](#How to use dumi in non-Umi projects such as cra?) to workaround this if your project must use this path.
+主要两个原因：
+
+1. 使用者很难覆写样式，因为最终 `className` 不稳定
+2. 自动 CSS Modules 依赖 babel 编译产物，给使用项目带来额外的编译成本，而大部分框架默认都不编译 `node_modules`（比如 Umi 框架就需要配置 `extraBabelIncludes` 才会编译 `node_modules` 下的产物）
+
+也许大部分人选择在组件库项目中使用它，是因为做前端应用研发时的习惯性选型，但它其实不适合组件库项目；另外，原因 2 也会产生额外的调时成本：『为什么 dev 生效、发布后在项目里不生效？』
+
+## 为什么组件库发布以后，在项目中引入组件但样式不生效？
+
+> 这里仅讨论**非 CSS-in-JS** 的组件库，CSS-in-JS 的组件库如果存在此问题，应该和组件实现有关。
+
+遇到这个问题说明组件库文档中引入的组件是有样式的，需要先确认文档中样式生效的原因，通常有 3 种可能：
+
+1. 借助 `.dumi/global.less` 加载了组件库样式表
+2. 借助 `.dumirc.ts` 中的 `styles` 配置项加载了组件库样式表
+3. 借助 `babel-plugin-import` 并将其配置到 `.dumirc.ts` 中按需加载了组件样式
+
+实际上，这些样式引入方案均只对文档构建生效，也就是说它们都是依托于 dumi 框架提供的能力，而组件库发布为 NPM 包以后，组件库的编译将由实际使用组件库的项目负责。
+
+因此，我们需要根据项目使用的开发框架做等价配置，才能确保样式生效，此处以 Umi 项目为例，上述 3 种方案的等价配置方式如下：
+
+1. 借助 `src/global.less` 加载组件库样式表
+2. 借助 `.umirc.ts` 中的 `styles` 配置项加载组件库样式表
+3. 借助 `babel-plugin-import` 并将其配置到 `.umirc.ts` 中按需加载组件样式
+
+其实该问题还有一种解决思路，那就是直接在组件源码里引入样式表，类似：
+
+```ts
+import './index.less';
+// or
+import './index.css';
+
+// 组件其他源码
+```
+
+这样无论是 dumi 还是实际项目里，都不需要做额外配置，但这种做法也有一些限制：如果引入的是 `.less`，那么目标项目的开发框架必须支持编译 Less。
+
+## 是否支持三级导航？
+
+不支持。如果文档目录结构的复杂度超过 3 级，应该考虑优化文档整体结构而非使用三级导航。如果有特殊场景需要，可以自定义主题实现。
