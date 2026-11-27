@@ -10,11 +10,11 @@ order: 0
 
 ## 环境准备
 
-确保正确安装 [Node.js](https://nodejs.org/en/) 且版本为 14+ 即可。
+确保正确安装 [Node.js](https://nodejs.org/en/) 且版本为 20+ 即可。
 
 ```bash
 $ node -v
-v14.19.1
+v20.11.0
 ```
 
 ## 脚手架
@@ -29,7 +29,8 @@ $ npx create-dumi
 # 选择一个模板
 $ ? Pick template type › - Use arrow-keys. Return to submit.
 $ ❯   Static Site # 用于构建网站
-$     React Library # 用于构建组件库，有组件例子
+$     React Library # 用于构建 React 组件库，有组件例子
+$     Vue Library # 用于构建 Vue 组件库，有组件例子
 $     Theme Package # 主题包开发脚手架，用于开发主题包
 
 # 安装依赖后启动项目

@@ -8,6 +8,11 @@
     "dumi",
     "theme"
   ],
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/umijs/dumi.git",
+    "directory": "suites/father-plugin"
+  },
   "license": "MIT",
   "main": "dist/index.js",
   "files": [
@@ -18,10 +23,10 @@
     "dev": "father dev"
   },
   "devDependencies": {
-    "father": "^4.1.0"
+    "father": "^4.6.21"
   },
   "peerDependencies": {
-    "father": "^4.1.0"
+    "father": "^4.6.21"
   },
   "publishConfig": {
     "access": "public"

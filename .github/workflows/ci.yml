@@ -24,16 +24,16 @@ jobs:
     runs-on: ${{ matrix.os }}
     strategy:
       matrix:
-        node_version: [14.x, 16.x, 18.x]
+        node-version: [20, 22, 24]
         os: [ubuntu-latest, windows-latest]
       fail-fast: false
     steps:
-      - uses: actions/checkout@v3
+      - uses: actions/checkout@v7
         with:
           fetch-depth: 0
 
       - name: Use Node.js ${{ matrix.node-version }}
-        uses: actions/setup-node@v3
+        uses: actions/setup-node@v7
         with:
           node-version: ${{ matrix.node-version }}
           registry-url: 'https://registry.npmjs.org/'
@@ -43,7 +43,7 @@ jobs:
           target: wasm32-wasip1
 
       - name: Install pnpm
-        uses: pnpm/action-setup@v4
+        uses: pnpm/action-setup@v6.1.0
         with:
           run_install: false
 
@@ -52,7 +52,7 @@ jobs:
         run: |
           echo "::set-output name=pnpm_cache_dir::$(pnpm store path)"
 
-      - uses: actions/cache@v3
+      - uses: actions/cache@v6
         name: Setup pnpm cache
         with:
           path: ${{ steps.pnpm-cache.outputs.pnpm_cache_dir }}
@@ -61,7 +61,7 @@ jobs:
             ${{ runner.os }}-pnpm-store-node${{ matrix.node-version }}-
 
       - name: Setup cargo cache
-        uses: actions/cache@v3
+        uses: actions/cache@v6
         with:
           # ref: https://doc.rust-lang.org/cargo/guide/cargo-home.html#caching-the-cargo-home-in-ci
           path: |
@@ -79,6 +79,9 @@ jobs:
 
       - name: Lint code
         run: pnpm lint:es
+
+      - name: Check types
+        run: pnpm typecheck
 
       - name: Run tests
         run: pnpm test

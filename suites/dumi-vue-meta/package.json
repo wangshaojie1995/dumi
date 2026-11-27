@@ -7,6 +7,11 @@
     "metadata",
     "component"
   ],
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/umijs/dumi.git",
+    "directory": "suites/dumi-vue-meta"
+  },
   "license": "MIT",
   "main": "dist/cjs/index.js",
   "types": "dist/cjs/index.d.ts",
@@ -28,8 +33,7 @@
     "vue-component-type-helpers": "^2.0.21"
   },
   "devDependencies": {
-    "eslint-plugin-vue": "^9.17.0",
-    "father": "^4.1.9",
+    "father": "^4.6.21",
     "typescript": "^5.2.2",
     "vue": "^3.3.4",
     "vue-types": "^5.1.1"

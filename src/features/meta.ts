@@ -1,18 +1,25 @@
 import type { IApi } from '@/types';
-import { generateMetaChunkName } from '@/utils';
+import {
+  generateMetaChunkName,
+  getContentHash,
+  toImportSpecifier,
+} from '@/utils';
+import { winPath } from '@umijs/utils';
 import path from 'path';
 import type { IRoute } from 'umi';
-import { winPath } from 'umi/plugin-utils';
-import { isTabRouteFile } from './tabs';
+import { isTabRouteFile } from './tabs/utils';
 
 export const TABS_META_PATH = 'dumi/meta/tabs.ts';
 export const ATOMS_META_PATH = 'dumi/meta/atoms.ts';
+export const DEMO_INDEX_META_PATH = 'dumi/meta/demoIndex.ts';
 
 type IMetaFiles = {
   index: number;
   file: string;
   id: string;
   isMarkdown?: boolean;
+  loadDemoIndex?: boolean;
+  loadDemoIndexMap?: boolean;
 }[];
 
 export default (api: IApi) => {
@@ -61,8 +68,13 @@ export default (api: IApi) => {
     });
 
     // mark isMarkdown flag
+    const useUtoopackDemoHMR =
+      api.env === 'development' && Boolean(api.config.utoopack);
+
     parsedMetaFiles.forEach((metaFile) => {
       metaFile.isMarkdown = metaFile.file.endsWith('.md');
+      metaFile.loadDemoIndex = metaFile.isMarkdown && !useUtoopackDemoHMR;
+      metaFile.loadDemoIndexMap = metaFile.isMarkdown && useUtoopackDemoHMR;
     });
 
     api.writeTmpFile({
@@ -70,7 +82,9 @@ export default (api: IApi) => {
       path: 'dumi/meta/index.ts',
       tplPath: require.resolve('../templates/meta/index.ts.tpl'),
       context: {
+        enableUtoopackHMR: useUtoopackDemoHMR,
         metaFiles: parsedMetaFiles,
+        metaStructureHash: getContentHash(JSON.stringify(parsedMetaFiles)),
         chunkName: function chunkName(this) {
           if (!('file' in this)) {
             return '';
@@ -84,14 +98,27 @@ export default (api: IApi) => {
       },
     });
 
+    api.writeTmpFile({
+      noPluginDir: true,
+      path: DEMO_INDEX_META_PATH,
+      tplPath: require.resolve('../templates/meta/demoIndex.ts.tpl'),
+      context: {
+        metaFiles: parsedMetaFiles,
+      },
+    });
+
     // generate runtime plugin, to append page meta to route object
     api.writeTmpFile({
       noPluginDir: true,
       path: 'dumi/meta/runtime.ts',
       tplPath: require.resolve('../templates/meta/runtime.ts.tpl'),
       context: {
-        deepmerge: winPath(path.dirname(require.resolve('deepmerge/package'))),
-        rc_util: winPath(path.dirname(require.resolve('rc-util/package'))),
+        deepmerge: toImportSpecifier(
+          path.dirname(require.resolve('deepmerge/package')),
+        ),
+        rc_util: toImportSpecifier(
+          path.dirname(require.resolve('rc-util/package')),
+        ),
       },
     });
 

@@ -1,16 +1,27 @@
 import { SP_ROUTE_PREFIX } from '@/constants';
 import { useAppData, useDemo, useSiteData } from 'dumi';
 import React, { ComponentType, createElement, type FC } from 'react';
-import type { IPreviewerProps } from '../types';
+import type { IDemoData, IPreviewerProps } from '../types';
 
 import Previewer from 'dumi/theme/builtins/Previewer';
 import { useRenderer } from '../useRenderer';
 import DemoErrorBoundary from './DemoErrorBoundary';
+import { areDumiDemoPropsEqual } from './areDumiDemoPropsEqual';
+
+type DemoGetter = () => Promise<{ demos: Record<string, IDemoData> }>;
+type UseDemo = (
+  id: string,
+  loader?: DemoGetter,
+  version?: string,
+  routeId?: string,
+) => IDemoData | undefined;
 
 export interface IDumiDemoProps {
   demo: {
     id: string;
     inline?: boolean;
+    loader?: DemoGetter;
+    version?: string;
   };
   previewerProps: Omit<IPreviewerProps, 'asset' | 'children'>;
 }
@@ -18,8 +29,8 @@ export interface IDumiDemoProps {
 const InternalDumiDemo = (props: IDumiDemoProps) => {
   const { historyType } = useSiteData();
   const { basename } = useAppData();
-  const id = props.demo.id;
-  const demo = useDemo(id)!;
+  const { id, loader, version } = props.demo;
+  const demo = (useDemo as UseDemo)(id, loader, version)!;
   const { component, asset, renderOpts } = demo;
 
   const { canvasRef } = useRenderer({
@@ -47,6 +58,9 @@ const InternalDumiDemo = (props: IDumiDemoProps) => {
   }
 
   const isHashRoute = historyType === 'hash';
+  const routeQuery = demo.routeId
+    ? `?routeId=${encodeURIComponent(demo.routeId)}`
+    : '';
 
   return (
     <Previewer
@@ -57,7 +71,7 @@ const InternalDumiDemo = (props: IDumiDemoProps) => {
         // when use hash route, browser can automatically handle relative paths starting with #
         `${isHashRoute ? `#` : ''}${basename}${SP_ROUTE_PREFIX}demos/${
           props.demo.id
-        }`
+        }${routeQuery}`
       }
       {...props.previewerProps}
     >
@@ -68,10 +82,7 @@ const InternalDumiDemo = (props: IDumiDemoProps) => {
 
 export const DumiDemo: FC<IDumiDemoProps> = React.memo(
   InternalDumiDemo,
-  (prev, next) => {
-    // compare length for performance
-    return JSON.stringify(prev).length === JSON.stringify(next).length;
-  },
+  areDumiDemoPropsEqual,
 );
 
 if (process.env.NODE_ENV !== 'production') {

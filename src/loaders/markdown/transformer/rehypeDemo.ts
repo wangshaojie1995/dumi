@@ -1,10 +1,10 @@
 import parseBlockAsset from '@/assetParsers/block';
 import type { IDumiDemoProps } from '@/client/theme-api/DumiDemo';
-import { getFileIdFromFsPath } from '@/utils';
+import { getContentHash, getFileIdFromFsPath } from '@/utils';
+import { logger, winPath } from '@umijs/utils';
 import type { sync } from 'enhanced-resolve';
 import type { Element, Root } from 'hast';
 import path from 'path';
-import { logger, winPath } from 'umi/plugin-utils';
 import type { Transformer } from 'unified';
 import type { DataMap } from 'vfile';
 import type { IMdTransformerOptions } from '.';
@@ -17,6 +17,13 @@ let isElement: typeof import('hast-util-is-element').isElement;
 const DEMO_NODE_CONTAINER = '$demo-container';
 
 export const DEMO_PROP_VALUE_KEY = '$demo-prop-value-key';
+const DEMO_LOADER_PLACEHOLDER = '__DUMI_DEMO_LOADER__';
+const DEMO_LOADER_PLACEHOLDER_VALUE =
+  DEMO_LOADER_PLACEHOLDER as unknown as NonNullable<
+    IDumiDemoProps['demo']['loader']
+  >;
+const DEMO_SHARED_PROP_PLACEHOLDER_PREFIX = '__DUMI_DEMO_SHARED_PROP_';
+const MIN_SHARED_PREVIEWER_PROP_SIZE = 1024;
 export const DUMI_DEMO_TAG = 'DumiDemo';
 export const DUMI_DEMO_GRID_TAG = 'DumiDemoGrid';
 export const SKIP_DEMO_PARSE = 'pure';
@@ -36,12 +43,73 @@ const alwaysDemoRE = new RegExp(
 
 type IRehypeDemoOptions = Pick<
   IMdTransformerOptions,
-  'techStacks' | 'cwd' | 'fileAbsPath' | 'resolve'
+  'techStacks' | 'cwd' | 'fileAbsPath' | 'resolve' | 'codeBlockBabelPlugins'
 > & {
   resolver: typeof sync;
   fileLocaleLessPath: string;
   fileLocale?: string;
+  useUtoopackDemoHMR?: boolean;
+  collectSideEffectStyles?: boolean;
 };
+
+function getDemoPropsFromNode(node: Element) {
+  return ([] as IDumiDemoProps[]).concat(
+    node.data?.[DEMO_PROP_VALUE_KEY] as IDumiDemoProps | IDumiDemoProps[],
+  );
+}
+
+function hoistSharedPreviewerProps(nodes: Element[]) {
+  const candidates = new Map<string, { count: number; value: unknown }>();
+
+  nodes.forEach((node) => {
+    getDemoPropsFromNode(node).forEach(({ previewerProps }) => {
+      Object.values(previewerProps).forEach((value) => {
+        if (!value || typeof value !== 'object') return;
+
+        // Custom tech stacks can attach the same large configuration object to
+        // every demo. Keep one module-level copy instead of expanding it into
+        // every JSX prop and its source map.
+        const serialized = JSON.stringify(value);
+        if (serialized.length < MIN_SHARED_PREVIEWER_PROP_SIZE) return;
+
+        const candidate = candidates.get(serialized);
+        if (candidate) {
+          candidate.count += 1;
+        } else {
+          candidates.set(serialized, { count: 1, value });
+        }
+      });
+    });
+  });
+
+  const sharedValues: unknown[] = [];
+  const sharedIndexes = new Map<string, number>();
+  candidates.forEach(({ count, value }, serialized) => {
+    if (count > 1) {
+      sharedIndexes.set(serialized, sharedValues.length);
+      sharedValues.push(value);
+    }
+  });
+
+  if (!sharedValues.length) return sharedValues;
+
+  nodes.forEach((node) => {
+    getDemoPropsFromNode(node).forEach(({ previewerProps }) => {
+      Object.entries(previewerProps).forEach(([key, value]) => {
+        if (!value || typeof value !== 'object') return;
+
+        const index = sharedIndexes.get(JSON.stringify(value));
+        if (index !== undefined) {
+          (previewerProps as Record<string, unknown>)[
+            key
+          ] = `${DEMO_SHARED_PROP_PLACEHOLDER_PREFIX}${index}__`;
+        }
+      });
+    });
+  });
+
+  return sharedValues;
+}
 
 /**
  * get language for code element
@@ -330,16 +398,29 @@ export default function rehypeDemo(
               component = techStack.transformCode(codeValue, {
                 type: 'code-block',
                 fileAbsPath: parseOpts.fileAbsPath,
+                babelPlugins: opts.codeBlockBabelPlugins,
               });
             }
 
             const propDemo: IDumiDemoProps['demo'] = { id: parseOpts.id };
+            if (opts.useUtoopackDemoHMR) {
+              propDemo.loader = DEMO_LOADER_PLACEHOLDER_VALUE;
+            }
             demoIds.push(parseOpts.id);
 
             // generate asset data for demo
             deferrers.push(
-              parseBlockAsset(parseOpts).then(
-                async ({ asset, resolveMap, frontmatter }) => {
+              parseBlockAsset({
+                ...parseOpts,
+                cacheable: opts.useUtoopackDemoHMR,
+                collectSideEffectStyles: opts.collectSideEffectStyles,
+              }).then(
+                async ({
+                  asset,
+                  resolveMap,
+                  frontmatter,
+                  sideEffectStyles,
+                }) => {
                   // repeat id to give warning
                   if (
                     demoIds.indexOf(parseOpts.id) !==
@@ -388,6 +469,12 @@ export default function rehypeDemo(
                   validAssetAttrs.forEach((key) => {
                     if (originalProps[key]) asset[key] = originalProps[key];
                   });
+
+                  if (opts.useUtoopackDemoHMR) {
+                    propDemo.version = getContentHash(
+                      JSON.stringify(asset.dependencies),
+                    );
+                  }
 
                   // do not generate previewer props & asset for inline demo
                   if (
@@ -461,6 +548,10 @@ export default function rehypeDemo(
                           techStackOpts,
                         )
                       : resolveMap,
+                    // Custom source mappings may replace the original dependencies.
+                    sideEffectStyles: techStack.generateSources
+                      ? undefined
+                      : sideEffectStyles,
                     renderOpts: {
                       rendererPath: runtimeOpts?.rendererPath,
                       compilePath: runtimeOpts?.compilePath,
@@ -515,10 +606,31 @@ export default function rehypeDemo(
     await Promise.all(deferrers).then((demos) => {
       // to make sure the order of demos is correct
       vFile.data.demos = demos;
+      const sharedPreviewerProps = opts.useUtoopackDemoHMR
+        ? hoistSharedPreviewerProps(replaceNodes)
+        : [];
+      if (sharedPreviewerProps.length) {
+        vFile.data.demoSharedProps = sharedPreviewerProps;
+      }
 
       // parse final value for jsx attributes
       replaceNodes.forEach((node) => {
-        const value = JSON.stringify(node.data![DEMO_PROP_VALUE_KEY]);
+        const demoLoader = `() => import('${winPath(
+          opts.fileAbsPath,
+        )}?type=demo')`;
+        let value = JSON.stringify(node.data![DEMO_PROP_VALUE_KEY]);
+
+        if (opts.useUtoopackDemoHMR) {
+          value = value.replace(
+            new RegExp(`"${DEMO_LOADER_PLACEHOLDER}"`, 'g'),
+            demoLoader,
+          );
+          sharedPreviewerProps.forEach((_, index) => {
+            value = value
+              .split(`"${DEMO_SHARED_PROP_PLACEHOLDER_PREFIX}${index}__"`)
+              .join(`__dumi_demo_shared_props__[${index}]`);
+          });
+        }
 
         if (node.JSXAttributes![0].type === 'JSXAttribute') {
           node.JSXAttributes![0].value = value;

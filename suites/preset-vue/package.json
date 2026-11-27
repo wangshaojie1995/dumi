@@ -8,6 +8,11 @@
     "preset",
     "vue"
   ],
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/umijs/dumi.git",
+    "directory": "suites/preset-vue"
+  },
   "license": "MIT",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
@@ -26,7 +31,7 @@
   "dependencies": {
     "@dumijs/vue-meta": "workspace:*",
     "@types/hash-sum": "^1.0.0",
-    "@umijs/bundler-webpack": "^4.0.81",
+    "@umijs/bundler-webpack": "^4.6.77",
     "codesandbox-import-utils": "^2.2.3",
     "compare-versions": "^6.1.0",
     "hash-sum": "^2.0.0",
@@ -38,7 +43,7 @@
     "@types/babel__standalone": "^7.1.7",
     "@vue/babel-plugin-jsx": "^1.1.6",
     "dumi": "workspace:*",
-    "father": "^4.1.9",
+    "father": "^4.6.21",
     "tsup": "^8.0.1"
   },
   "peerDependencies": {

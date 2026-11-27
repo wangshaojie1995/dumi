@@ -26,7 +26,25 @@ dumi 对 HTML 默认的 `embed` 标签做了扩展，允许在 Markdown 文档�
 <!-- 根据正则引入部分 Markdown 文件内容 -->
 
 <embed src="/path/to/some.md#RE-/^[^\r\n]+/"></embed>
+
+<!-- 根据 VS Code region 引入部分 Markdown 文件内容 -->
+
+<embed src="/path/to/some.md#some-region"></embed>
 ```
+
+### region 引入 <Badge>2.4.57+</Badge>
+
+region 的标记写法与 [VS Code](https://code.visualstudio.com/docs/editing/codebasics#_folding) 一致，需要写在被嵌入的文件里：
+
+```md
+<!-- #region some-region -->
+
+这里的 Markdown 内容会被嵌入
+
+<!-- #endregion -->
+```
+
+结束标记也可以带上对应的 region 名，例如 `<!-- #endregion some-region -->`。
 
 ## Badge
 
@@ -61,7 +79,7 @@ dumi 内置了 Badge 组件，可以为 Markdown 内容（例如标题）添加�
 这是一条普通信息
 :::
 
-:::success
+:::success{title="Custom success title"}
 这是一条成功信息
 :::
 
@@ -80,7 +98,7 @@ dumi 内置了 Badge 组件，可以为 Markdown 内容（例如标题）添加�
 这是一条普通信息
 :::
 
-:::success
+:::success{title="Custom success title"}
 这是一条成功信息
 :::
 
@@ -312,3 +330,17 @@ export default defineConfig({
 ```
 
 :::
+
+<br/>
+
+## 自定义锚点 <Badge>2.4.54+</Badge> {#custom-anchor}
+
+标题默认以标题文本自动生成锚点，如果希望使用自定义锚点，可以在标题末尾追加 `{#custom-id}`：
+
+```md
+## 自定义标题 {#custom-anchor}
+```
+
+上面的标题会被渲染为 `<h2 id="custom-anchor">`，而不是 `<h2 id="自定义标题">`。
+
+锚点标记必须**位于标题末尾**，如果标题中还有 `<Badge>` 等行内标签，需要写在标签之后。锚点 id 会按原样输出，不会做任何转换。

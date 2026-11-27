@@ -1,17 +1,20 @@
+import { lodash, logger, semver, winPath } from '@umijs/utils';
 import type { Range, RangeOptions } from '@umijs/utils/compiled/semver';
 import { createHash } from 'crypto';
-import Cache from 'file-system-cache';
 import fs from 'fs';
 import yaml from 'js-yaml';
 import path from 'path';
-import { lodash, logger, semver, winPath } from 'umi/plugin-utils';
 import { promisify } from 'util';
+import type CreateCache from '../compiled/file-system-cache';
 import type {
   RunLoaderOption as InternalRunLoaderOption,
   RunLoaderResult,
 } from '../compiled/loader-runner';
 import { runLoaders as callbackRunLoaders } from '../compiled/loader-runner';
 import { FS_CACHE_DIR } from './constants';
+// Read the CommonJS default consistently in Node and source test runners.
+const Cache: typeof CreateCache =
+  require('../compiled/file-system-cache').default;
 export type * from '../compiled/loader-runner';
 export { getContext } from '../compiled/loader-runner';
 /**
@@ -22,10 +25,17 @@ export function getFileIdFromFsPath(fsPath: string) {
 }
 
 /**
+ * file range pattern, such as `L1` or `L1-L3`
+ *
+ * @see https://regex101.com/r/A602tN/1
+ */
+export const FILE_RANGE_RE = /^L(\d+)(?:-L(\d+))?$/;
+
+/**
  * get range lines of markdown file
  */
 export const getFileRangeLines = (content: string, range: string) => {
-  const [, start, end] = range?.match(/^L(\d+)(?:-L(\d+))?$/) || [];
+  const [, start, end] = range?.match(FILE_RANGE_RE) || [];
 
   if (start) {
     const lineStart = parseInt(start, 10) - 1;
@@ -61,6 +71,58 @@ File: ${filePath}
 Error: ${err}`);
     return content;
   }
+};
+
+/**
+ * get file content by vscode region
+ * @param content   source file content
+ * @param region    region name
+ * @param filePath  source file path
+ *
+ * @see https://code.visualstudio.com/docs/editing/codebasics#_folding
+ */
+export const getFileContentByRegion = (
+  content: string,
+  region: string,
+  filePath: string,
+) => {
+  // embed only works for markdown, so region syntax is limited to html comment
+  const lines = content.split(/\r\n|\n/g);
+  const regionName = region.trim();
+  const regions: string[] = [];
+  let start = -1;
+
+  for (let i = 0; i < lines.length; i++) {
+    const marker = lines[i].match(
+      /^\s*<!--\s*#?(region|endregion)\b(.*?)-->\s*$/,
+    );
+    if (!marker) continue;
+
+    const [, type, name] = marker;
+    const markerName = name.trim();
+
+    if (type === 'region') {
+      if (start === -1) {
+        if (!regionName || markerName !== regionName) continue;
+        start = i;
+      }
+      regions.push(markerName);
+    } else if (
+      start !== -1 &&
+      (!markerName || markerName === regions[regions.length - 1])
+    ) {
+      // An anonymous end closes the innermost region; named ends must match it.
+      regions.pop();
+      if (!regions.length) {
+        return lines.slice(start + 1, i).join('\n');
+      }
+    }
+  }
+
+  logger.error(`Extract markdown content failed, use the full content.
+Region: ${region}
+File: ${filePath}`);
+  return content;
 };
 
 /**
@@ -271,4 +333,15 @@ export function isVersionInRange(
     return semver.subset(version, range, options);
   }
   return false;
+}
+
+/**
+ * normalize module specifier for generated import/export statements
+ * keep package/bare specifiers unchanged and normalize path separators
+ */
+export function toImportSpecifier(source: string) {
+  if (!source) return source;
+  if (/^(?:node|data|file):/.test(source)) return source;
+
+  return winPath(source);
 }

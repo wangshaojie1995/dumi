@@ -34,19 +34,53 @@ export function use<T>(promise: ReactPromise<T>): T {
   }
 }
 
-const demoIdMap = Object.keys(filesMeta).reduce((total, current) => {
-  if (filesMeta[current].demoIndex) {
-    const { ids, getter } = filesMeta[current].demoIndex;
+type DemoGetter = () => Promise<{ demos: Record<string, IDemoData> }>;
+type DemoIndex = {
+  ids: string[];
+  getter: DemoGetter;
+};
+type DemoIndexGetter = () => Promise<DemoIndex>;
 
-    ids.forEach((id) => {
-      total[id] = getter;
-    });
-  }
+const demoIndexes = Object.entries(filesMeta)
+  .map(([id, meta]) => ({
+    id,
+    demoIndex: meta.demoIndex,
+  }))
+  .filter(
+    (item): item is { id: string; demoIndex: DemoIndex } =>
+      Boolean(item.demoIndex),
+  );
 
-  return total;
-}, {});
+const demoIdMap = demoIndexes.reduce<Record<string, DemoGetter>>(
+  (total, { demoIndex }) => {
+    if (demoIndex) {
+      const { ids, getter } = demoIndex;
+
+      ids.forEach((id) => {
+        total[id] = getter;
+      });
+    }
+
+    return total;
+  },
+  {},
+);
 
 const demosCache = new Map<string, Promise<IDemoData | undefined>>();
+let demoIndexMapPromise:
+  | Promise<Record<string, DemoIndexGetter | undefined>>
+  | undefined;
+
+function loadDemoIndexMap() {
+  if (!demoIndexMapPromise) {
+    demoIndexMapPromise = import('./demoIndex').then(
+      ({ demoIndexMap }) =>
+        demoIndexMap as Record<string, DemoIndexGetter | undefined>,
+    );
+  }
+
+  return demoIndexMapPromise;
+}
 
 /**
  * expand context for source omit extension
@@ -65,36 +99,131 @@ function expandDemoContext(context?: IDemoData['context']) {
   }
 }
 
+function getDemoIdCandidates(id: string) {
+  const ids = [id];
+  const localeLessId = id.replace(/-[a-z]{2}(?:-[A-Z]{2})?$/, '');
+
+  if (localeLessId !== id) {
+    ids.push(localeLessId);
+  }
+
+  return ids;
+}
+
+async function getDemoFromDemoIndex(
+  id: string,
+  demoIndexGetter: DemoIndexGetter,
+) {
+  const demoIndex = await demoIndexGetter();
+  const demoId = getDemoIdCandidates(id).find((candidate) =>
+    demoIndex.ids.includes(candidate),
+  );
+  const getter = demoId ? demoIndex.getter : undefined;
+
+  if (!getter) return undefined;
+
+  demoIdMap[id] = getter;
+  const { demos } = await getter();
+  const demo = demos[id] ?? demos[demoId!];
+
+  if (!demo) return undefined;
+
+  expandDemoContext(demo.context);
+  return demo;
+}
+
+async function getDemoFromRouteIndex(id: string, routeId: string) {
+  const demoIndexMap = await loadDemoIndexMap();
+  const demoIndexGetter = demoIndexMap[routeId];
+
+  if (!demoIndexGetter) return getDemoFromIndexMap(id);
+
+  return (
+    (await getDemoFromDemoIndex(id, demoIndexGetter)) ??
+    getDemoFromIndexMap(id)
+  );
+}
+
+async function getDemoFromIndexMap(id: string) {
+  const demoIndexMap = await loadDemoIndexMap();
+  const demoIndexGetters = Object.values(demoIndexMap).filter(
+    (item): item is DemoIndexGetter => Boolean(item),
+  );
+
+  for (const demoIndexGetter of demoIndexGetters) {
+    const demo = await getDemoFromDemoIndex(id, demoIndexGetter).catch(
+      () => undefined,
+    );
+    if (demo) return demo;
+  }
+}
+
 /**
  * use demo data by id
  */
-export function useDemo(id: string): IDemoData | undefined {
-  if (!demosCache.get(id)) {
+export function useDemo(
+  id: string,
+  loader?: DemoGetter,
+  version?: string,
+  routeId?: string,
+): IDemoData | undefined {
+  const mappedDemoId = loader
+    ? undefined
+    : getDemoIdCandidates(id).find((candidate) => demoIdMap[candidate]);
+  const cacheKey = version
+    ? `${id}:${version}`
+    : routeId
+      ? `${id}:route=${routeId}`
+      : id;
+  const getter = loader ?? (mappedDemoId ? demoIdMap[mappedDemoId] : undefined);
+
+  if (!demosCache.get(cacheKey)) {
     demosCache.set(
-      id,
-      demoIdMap[id]?.().then(({ demos }) => {
-        // expand context for omit ext
-        expandDemoContext(demos[id].context);
-        return demos[id];
-      }),
+      cacheKey,
+      getter
+        ? getter().then(({ demos }) => {
+            const demo = demos[id] ?? (mappedDemoId && demos[mappedDemoId]);
+            if (!demo) return undefined;
+
+            // expand context for omit ext
+            expandDemoContext(demo.context);
+            return demo;
+          })
+        : routeId
+          ? getDemoFromRouteIndex(id, routeId)
+          : getDemoFromIndexMap(id),
     );
+
+    // Reuse local demo data for consumers that still call useDemo(id), such as useLiveDemo.
+    demosCache.set(id, demosCache.get(cacheKey)!);
   }
 
-  return use(demosCache.get(id)!);
+  return use(demosCache.get(cacheKey)!);
 }
 
 /**
  * get all demos
  */
 export async function getFullDemos() {
-  const demoFilesMeta = Object.entries(filesMeta).filter(
-    ([_id, meta]) => meta.demoIndex,
+  const demoIndexMap = await loadDemoIndexMap();
+  const lazyDemoIndexes = await Promise.all(
+    Object.entries(demoIndexMap).map(async ([id, demoIndexGetter]) => ({
+      id,
+      demoIndex: await demoIndexGetter?.().catch(() => undefined),
+    })),
+  );
+  const allDemoIndexes = [
+    ...demoIndexes,
+    ...lazyDemoIndexes,
+  ].filter(
+    (item): item is { id: string; demoIndex: DemoIndex } =>
+      Boolean(item.demoIndex),
   );
 
   return Promise.all(
-    demoFilesMeta.map(async ([id, meta]) => ({
+    allDemoIndexes.map(async ({ id, demoIndex }) => ({
       id,
-      demos: (await meta.demoIndex.getter()).demos as Record<string, IDemoData>,
+      demos: (await demoIndex.getter()).demos as Record<string, IDemoData>,
     })),
   ).then((ret) =>
     ret.reduce<Record<string, IDemoData>>((total, { id, demos }) => {

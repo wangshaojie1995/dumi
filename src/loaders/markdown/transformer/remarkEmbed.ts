@@ -1,10 +1,15 @@
-import { getFileContentByRegExp, getFileRangeLines } from '@/utils';
+import {
+  FILE_RANGE_RE,
+  getFileContentByRegExp,
+  getFileContentByRegion,
+  getFileRangeLines,
+} from '@/utils';
+import { winPath } from '@umijs/utils';
 import enhancedResolve from 'enhanced-resolve';
 import fs from 'fs';
 import type { Paragraph, Root } from 'mdast';
 import path from 'path';
 import type { Root as YAMLRoot } from 'remark-frontmatter';
-import { winPath } from 'umi/plugin-utils';
 import type { FrozenProcessor, Transformer } from 'unified';
 import url from 'url';
 import type { IMdTransformerOptions } from '.';
@@ -129,11 +134,13 @@ export default function remarkEmbed(
 
           let content = fs.readFileSync(absPath, 'utf-8');
 
-          // extract content by hash (line range or regexp)
-          if (hash.startsWith('L')) {
+          // extract content by hash (line range, regexp or vscode region)
+          if (FILE_RANGE_RE.test(hash)) {
             content = getFileRangeLines(content, hash);
           } else if (hash.startsWith('RE-')) {
             content = getFileContentByRegExp(content, hash.slice(3), absPath);
+          } else if (hash) {
+            content = getFileContentByRegion(content, hash, absPath);
           }
 
           // parse partial content to mdast

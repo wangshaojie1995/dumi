@@ -2,16 +2,17 @@ import {
   getHostForTabRouteFile,
   getTabKeyFromFile,
   isTabRouteFile,
-} from '@/features/tabs';
+} from '@/features/tabs/utils';
+import { lodash, winPath } from '@umijs/utils';
 import { execSync } from 'child_process';
 import fs from 'fs';
 import yaml from 'js-yaml';
 import type { Root } from 'mdast';
 import path from 'path';
 import type { Root as YAMLRoot } from 'remark-frontmatter';
-import { lodash, winPath } from 'umi/plugin-utils';
 import type { Transformer } from 'unified';
 import type { IMdTransformerOptions } from '.';
+import { stripCustomAnchorMarker } from './rehypeSlug';
 
 let visit: typeof import('unist-util-visit').visit;
 let toString: typeof import('mdast-util-to-string').toString;
@@ -71,7 +72,7 @@ export default function remarkMeta(opts: IRemarkMetaOpts): Transformer<Root> {
     try {
       vFile.data.frontmatter.lastUpdated =
         parseInt(
-          execSync(`git log -1 --format=%at ${opts.fileAbsPath}`, {
+          execSync(`git log -1 --format=%at -- "${opts.fileAbsPath}"`, {
             stdio: 'pipe',
           }).toString(),
           10,
@@ -98,7 +99,10 @@ export default function remarkMeta(opts: IRemarkMetaOpts): Transformer<Root> {
       () => {
         visit<Root, 'heading'>(tree, 'heading', (node) => {
           if (node.depth === 1) {
-            vFile.data.frontmatter!.title = toString(node.children);
+            // the anchor marker is syntax rather than content
+            vFile.data.frontmatter!.title = stripCustomAnchorMarker(
+              toString(node.children),
+            );
           }
         });
       },

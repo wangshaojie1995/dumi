@@ -53,7 +53,7 @@ export interface IPreviewerProps {
   /**
    * private field, do not use it in your code
    */
-  _live_in_iframe: boolean;
+  _live_in_iframe?: boolean;
   [key: string]: any;
 }
 

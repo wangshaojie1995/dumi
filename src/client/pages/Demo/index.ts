@@ -1,13 +1,34 @@
-import { useDemo, useLiveDemo, useParams } from 'dumi';
-import { ComponentType, createElement, useEffect, type FC } from 'react';
+import { useDemo, useLiveDemo, useLocation, useParams } from 'dumi';
+import {
+  ComponentType,
+  Fragment,
+  createElement,
+  useEffect,
+  type FC,
+} from 'react';
+import {
+  isLiveDemoMessage,
+  isLiveDemoSource,
+} from '../../theme-api/liveDemoMessage';
+import type { IDemoData } from '../../theme-api/types';
 import { useRenderer } from '../../theme-api/useRenderer';
 import './index.less';
 
+type DemoGetter = () => Promise<{ demos: Record<string, IDemoData> }>;
+type UseDemo = (
+  id: string,
+  loader?: DemoGetter,
+  version?: string,
+  routeId?: string,
+) => IDemoData | undefined;
+
 const DemoRenderPage: FC = () => {
   const params = useParams();
+  const { search } = useLocation();
   const id = params.id!;
+  const routeId = new URLSearchParams(search).get('routeId') || undefined;
 
-  const demo = useDemo(id)!;
+  const demo = (useDemo as UseDemo)(id, undefined, undefined, routeId)!;
   const { canvasRef } = useRenderer({
     id,
     component: demo.component,
@@ -31,13 +52,22 @@ const DemoRenderPage: FC = () => {
 
   // listen message event for setSource
   useEffect(() => {
+    const dependencies = demo.asset?.dependencies;
+    const entryFileName =
+      dependencies &&
+      Object.keys(dependencies).find(
+        (key) => dependencies[key].type === 'FILE',
+      );
     const handler = (
       ev: MessageEvent<{
         type: string;
         value: Parameters<typeof setSource>[0];
       }>,
     ) => {
-      if (ev.data.type === 'dumi.liveDemo.setSource') {
+      if (
+        isLiveDemoMessage(ev, window.parent, 'dumi.liveDemo.setSource') &&
+        isLiveDemoSource(ev.data.value, entryFileName)
+      ) {
         setSource(ev.data.value);
       }
     };
@@ -45,19 +75,22 @@ const DemoRenderPage: FC = () => {
     window.addEventListener('message', handler);
 
     return () => window.removeEventListener('message', handler);
-  }, [setSource]);
+  }, [demo.asset, setSource]);
 
-  // notify parent window that compile done
+  // The parent listens on this window for compilation completion.
   useEffect(() => {
     if (!loading && (liveDemoError || liveDemoNode)) {
-      window.postMessage({
-        type: 'dumi.liveDemo.compileDone',
-        value: { err: liveDemoError },
-      });
+      window.postMessage(
+        {
+          type: 'dumi.liveDemo.compileDone',
+          value: { err: liveDemoError },
+        },
+        window.location.origin,
+      );
     }
   }, [liveDemoError, liveDemoNode, loading]);
 
-  return finalNode;
+  return createElement(Fragment, null, finalNode);
 };
 
 export default DemoRenderPage;

@@ -6,7 +6,7 @@ import {
   VERSION_2_LEVEL_NAV,
 } from '@/constants';
 import type { IApi } from '@/types';
-import { isVersionInRange } from '@/utils';
+import { isVersionInRange, toImportSpecifier } from '@/utils';
 import { parseModule } from '@umijs/bundler-utils';
 import { execSync } from 'child_process';
 import fs from 'fs';
@@ -16,7 +16,9 @@ import { deepmerge, lodash, resolve, winPath } from 'umi/plugin-utils';
 import { safeExcludeInMFSU } from '../derivative';
 import loadTheme, { IThemeLoadResult } from './loader';
 
-const DEFAULT_THEME_PATH = path.join(__dirname, '../../../theme-default');
+const DEFAULT_THEME_PATH = winPath(
+  path.join(__dirname, '../../../theme-default'),
+);
 const DEFAULT_LOADING_PATH = winPath(
   path.resolve(__dirname, '../../client/pages/Loading'),
 );
@@ -193,23 +195,34 @@ export default (api: IApi) => {
   });
 
   api.modifyConfig((memo) => {
+    // alias each component from package/default theme, as fallback source
+    // this keeps theme slots resolvable even if tmp shadow theme generation is interrupted
+    themeMapKeys.forEach((key) => {
+      Object.values(pkgThemeData[key] || {}).forEach((item) => {
+        memo.alias[`dumi/theme/${key}/${item.specifier}`] = winPath(
+          item.source,
+        );
+      });
+    });
+
     // alias each component from local theme, as a part of final theme
     if (localThemeData) {
       themeMapKeys.forEach((key) => {
         Object.values(localThemeData[key] || {}).forEach((item) => {
-          memo.alias[`dumi/theme/${key}/${item.specifier}`] = item.source;
+          memo.alias[`dumi/theme/${key}/${item.specifier}`] = winPath(
+            item.source,
+          );
         });
       });
     }
     // alias final theme to fall back to original theme
     memo.alias['dumi/theme'] = 'dumi/theme-original';
     // alias original theme to temp dir
-    memo.alias['dumi/theme-original'] = path.join(
-      api.paths.absTmpPath,
-      'dumi/theme',
+    memo.alias['dumi/theme-original'] = winPath(
+      path.join(api.paths.absTmpPath, 'dumi/theme'),
     );
     // alias default theme
-    memo.alias['dumi/theme-default'] = DEFAULT_THEME_PATH;
+    memo.alias['dumi/theme-default'] = winPath(DEFAULT_THEME_PATH);
 
     // FIXME: for replace deps by MFSU in local
     memo.extraBabelIncludes ??= [];
@@ -290,13 +303,13 @@ export default (api: IApi) => {
         path: 'dumi/theme/loading.tsx',
         content: `${
           enableNProgress
-            ? `import nprogress from '${winPath(
+            ? `import nprogress from '${toImportSpecifier(
                 path.dirname(require.resolve('nprogress/package')),
               )}';
 import './nprogress.css';`
             : ''
         }
-import UserLoading from '${globalLoading}';
+import UserLoading from '${toImportSpecifier(globalLoading)}';
 import React, { useLayoutEffect, type FC } from 'react';
 import { useSiteData } from 'dumi';
 
@@ -344,12 +357,14 @@ export default DumiLoading;
 
         // export default
         if (exports.includes('default')) {
-          contents.push(`export { default } from '${item.source}';`);
+          contents.push(
+            `export { default } from '${toImportSpecifier(item.source)}';`,
+          );
         }
 
         // export members
         if (exports.some((exp) => exp !== 'default')) {
-          contents.push(`export * from '${item.source}';`);
+          contents.push(`export * from '${toImportSpecifier(item.source)}';`);
         }
 
         api.writeTmpFile({
@@ -375,27 +390,35 @@ export default DumiLoading;
       path: 'dumi/theme/ContextWrapper.tsx',
       tplPath: require.resolve('../../templates/ContextWrapper.ts.tpl'),
       context: {
-        contextPath: winPath(require.resolve('../../client/theme-api/context')),
+        contextPath: toImportSpecifier(
+          require.resolve('../../client/theme-api/context'),
+        ),
         defaultExport: hasDefaultExport
-          ? `import entryDefaultExport from '${winPath(entryFile!)}';`
+          ? `import entryDefaultExport from '${toImportSpecifier(entryFile!)}';`
           : '',
         namedExport: hasNamedExport
-          ? `import * as entryMemberExports from '${winPath(entryFile!)}';`
+          ? `import * as entryMemberExports from '${toImportSpecifier(
+              entryFile!,
+            )}';`
           : '',
         hasDefaultExport,
         hasNamedExport,
         pkg: JSON.stringify(
           lodash.pick(api.pkg, ...Object.keys(PICKED_PKG_FIELDS)),
         ),
-        historyType: api.config.history?.type || 'browser',
-        hostname: String(JSON.stringify(api.config.sitemap?.hostname)),
+        historyType: api.config.history ? api.config.history.type : 'browser',
+        hostname: String(
+          JSON.stringify(api.config.sitemap ? api.config.sitemap.hostname : ''),
+        ),
         themeConfig: JSON.stringify(
           Object.assign(
             lodash.pick(api.config, 'logo', 'description', 'title'),
             api.config.themeConfig,
           ),
         ),
-        rc_util: winPath(path.dirname(require.resolve('rc-util/package'))),
+        rc_util: toImportSpecifier(
+          path.dirname(require.resolve('rc-util/package')),
+        ),
         _2_level_nav_available: api.appData._2LevelNavAvailable,
       },
     });
@@ -502,7 +525,9 @@ export default DumiLoading;
     },
     {
       specifier: '{ setPluginManager as setDumiPluginManager }',
-      source: winPath(require.resolve('../../client/theme-api/utils')),
+      source: toImportSpecifier(
+        require.resolve('../../client/theme-api/utils'),
+      ),
     },
   ]);
   api.addEntryCode(() => 'setDumiPluginManager(getDumiPluginManager());');

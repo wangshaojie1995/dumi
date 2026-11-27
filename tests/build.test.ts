@@ -1,7 +1,7 @@
 import path from 'path';
 import { execa } from 'umi/plugin-utils';
 
-test('build', () => {
+test('build with mako', () => {
   const bin = require.resolve('../bin/dumi');
 
   execa.execaSync('node', [bin, 'build'], {

@@ -1,8 +1,15 @@
 import type { IApi } from '@/types';
 import { createRouteId } from '@umijs/core/dist/route/utils';
+import { lodash, Mustache, winPath } from '@umijs/utils';
 import path from 'path';
-import { lodash, Mustache, winPath } from 'umi/plugin-utils';
 import { TABS_META_PATH } from './meta';
+import { getTabKeyFromFile, isTabRouteFile } from './tabs/utils';
+
+export {
+  getHostForTabRouteFile,
+  getTabKeyFromFile,
+  isTabRouteFile,
+} from './tabs/utils';
 
 export interface IContentTab {
   key: string;
@@ -11,18 +18,6 @@ export interface IContentTab {
   title?: string;
   titleIntlId?: string;
   component: string;
-}
-
-export function isTabRouteFile(file: string) {
-  return file.includes('$tab-');
-}
-
-export function getTabKeyFromFile(file: string) {
-  return file.match(/\$tab-([^.]+)/)![1];
-}
-
-export function getHostForTabRouteFile(file: string) {
-  return file.replace(/\$tab-[^.]+\./, '');
 }
 
 /**
@@ -84,14 +79,18 @@ export default (api: IApi) => {
           routesTabMapping[parentFile].push(routeId);
         }
       } else {
+        const routeFile = route.file;
+
+        if (!routeFile) return;
+
         // apply plugin tabs for normal routes
         tabsFromPlugins.forEach((tab) => {
           if (
             (!tab.test || route.absPath.match(tab.test)) &&
-            !routesTabMapping[route.file]?.includes(tab.id!)
+            !routesTabMapping[routeFile]?.includes(tab.id!)
           ) {
-            routesTabMapping[route.file] ??= [];
-            routesTabMapping[route.file].push(tab.id!);
+            routesTabMapping[routeFile] ??= [];
+            routesTabMapping[routeFile].push(tab.id!);
           }
         });
       }
